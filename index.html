@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sensor W610</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a0d;
+    --card: #111418;
+    --border: #1c2230;
+    --accent: #00e5ff;
+    --green: #39ff14;
+    --orange: #ff6b35;
+    --warn: #ffcc00;
+    --text: #c8d6e5;
+    --dim: #3a4558;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 16px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    padding: 0 0 calc(16px + var(--safe-bottom));
+    overscroll-behavior: none;
+  }
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px 10px;
+    background:var(--card); border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:100;
+  }
+  .topbar-title { font-family:var(--mono); font-size:13px; letter-spacing:2px; color:var(--accent); }
+  .conn-badge {
+    display:flex; align-items:center; gap:6px;
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:20px; padding:5px 12px;
+    font-family:var(--mono); font-size:11px; color:var(--dim); transition:all 0.3s;
+  }
+  .conn-badge.on  { border-color:var(--green);  color:var(--green);  }
+  .conn-badge.err { border-color:var(--orange); color:var(--orange); }
+  .conn-dot { width:6px; height:6px; border-radius:50%; background:var(--dim); transition:all 0.3s; }
+  .conn-badge.on  .conn-dot { background:var(--green);  box-shadow:0 0 6px var(--green);  }
+  .conn-badge.err .conn-dot { background:var(--orange); box-shadow:0 0 6px var(--orange); }
+
+  .content { padding:16px; display:flex; flex-direction:column; gap:14px; }
+
+  /* INSTALL BANNER */
+  .install-banner {
+    background: linear-gradient(135deg, rgba(0,229,255,0.08), rgba(57,255,20,0.05));
+    border: 1px solid rgba(0,229,255,0.25);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .install-icon { font-size: 24px; flex-shrink:0; margin-top:2px; }
+  .install-text { font-size: 12px; color: var(--text); line-height: 1.6; }
+  .install-text strong { color: var(--accent); display:block; margin-bottom:4px; font-size:13px; }
+  .install-step { color: var(--dim); font-size: 11px; font-family: var(--mono); }
+  .install-step span { color: var(--accent); }
+  .install-dismiss {
+    background: none; border: none; color: var(--dim);
+    font-size: 18px; cursor: pointer; padding: 0 0 0 8px; flex-shrink:0;
+  }
+
+  .val-card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); padding:24px 20px 20px; text-align:center; position:relative; overflow:hidden;
+  }
+  .val-card::before {
+    content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:60%; height:1px;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .val-label { font-size:11px; letter-spacing:3px; color:var(--dim); text-transform:uppercase; margin-bottom:8px; font-family:var(--mono); }
+  .val-number {
+    font-family:var(--mono); font-size:64px; color:var(--green);
+    text-shadow:0 0 30px rgba(57,255,20,0.3); line-height:1; transition:all 0.3s; letter-spacing:-2px;
+  }
+  .val-number.flash { text-shadow:0 0 40px rgba(57,255,20,0.7); }
+  .val-unit { font-family:var(--mono); font-size:18px; color:var(--dim); margin-top:4px; }
+  .val-time { font-family:var(--mono); font-size:10px; color:var(--dim); margin-top:10px; }
+
+  .stats-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 10px; text-align:center; }
+  .stat-val { font-family:var(--mono); font-size:20px; color:var(--accent); display:block; }
+  .stat-lbl { font-size:9px; letter-spacing:1px; color:var(--dim); text-transform:uppercase; display:block; margin-top:3px; }
+
+  .chart-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+  .chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .chart-title { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--dim); text-transform:uppercase; }
+  .chart-range { font-family:var(--mono); font-size:10px; color:var(--dim); }
+
+  .log-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .log-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
+  .log-title { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--dim); text-transform:uppercase; }
+  .log-clear { font-family:var(--mono); font-size:10px; color:var(--orange); background:none; border:none; cursor:pointer; padding:4px 8px; }
+  .log-body { height:180px; overflow-y:auto; padding:8px 12px; -webkit-overflow-scrolling:touch; }
+  .log-body::-webkit-scrollbar { display:none; }
+  .log-row { display:flex; gap:10px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03); font-family:var(--mono); font-size:11px; animation:slideIn 0.15s ease; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .log-t { color:var(--dim); flex-shrink:0; }
+  .log-d { color:var(--text); word-break:break-all; }
+  .log-d.sys { color:var(--warn); font-style:italic; }
+
+  .connect-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+  .connect-title { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--dim); text-transform:uppercase; margin-bottom:12px; }
+  .input-group { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+  .input-group label { font-family:var(--mono); font-size:11px; color:var(--dim); min-width:50px; }
+  .input-group input {
+    flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    font-family:var(--mono); font-size:13px; padding:9px 12px; border-radius:8px; outline:none; -webkit-appearance:none;
+  }
+  .input-group input:focus { border-color:var(--accent); }
+  .btn-connect {
+    width:100%; padding:14px; border-radius:10px; border:none;
+    font-family:var(--mono); font-size:13px; letter-spacing:2px; cursor:pointer; transition:all 0.2s; text-transform:uppercase;
+  }
+  .btn-connect.off { background:var(--green); color:#000; box-shadow:0 4px 20px rgba(57,255,20,0.25); }
+  .btn-connect.on  { background:transparent; color:var(--orange); border:1px solid var(--orange); }
+
+  .filter-row { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch; }
+  .filter-row::-webkit-scrollbar { display:none; }
+  .fpill {
+    flex-shrink:0; background:var(--card); border:1px solid var(--border); color:var(--dim);
+    font-family:var(--mono); font-size:11px; padding:6px 14px; border-radius:20px; cursor:pointer; transition:all 0.15s; -webkit-appearance:none;
+  }
+  .fpill.active { border-color:var(--accent); color:var(--accent); background:rgba(0,229,255,0.08); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">W610 · SENSOR</span>
+  <div class="conn-badge" id="badge">
+    <div class="conn-dot"></div>
+    <span id="badgeTxt">DESCONECTADO</span>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- INSTALL BANNER -->
+  <div class="install-banner" id="installBanner">
+    <div class="install-icon">📲</div>
+    <div class="install-text">
+      <strong>Instalar como app</strong>
+      <div class="install-step">1. Toca <span>Compartir ↑</span> en Safari</div>
+      <div class="install-step">2. Toca <span>"Agregar a inicio"</span></div>
+      <div class="install-step">3. Abre siempre desde el ícono</div>
+    </div>
+    <button class="install-dismiss" onclick="dismissBanner()">✕</button>
+  </div>
+
+  <!-- CONNECT -->
+  <div class="connect-card">
+    <div class="connect-title">Conexión WebSocket</div>
+    <div class="input-group">
+      <label>Host</label>
+      <input type="text" id="wsHost" value="10.10.100.254" inputmode="url">
+    </div>
+    <div class="input-group">
+      <label>Puerto</label>
+      <input type="number" id="wsPort" value="8000" inputmode="numeric">
+    </div>
+    <button class="btn-connect off" id="btnConn" onclick="toggleConn()">▶ Conectar</button>
+  </div>
+
+  <!-- FILTRO -->
+  <div class="filter-row">
+    <button class="fpill active" id="fp-all" onclick="setFP('all')">Todos</button>
+    <button class="fpill" id="fp-int" onclick="setFP('int')">Enteros</button>
+    <button class="fpill" id="fp-dec" onclick="setFP('dec')">Decimales</button>
+    <button class="fpill" id="fp-neg" onclick="setFP('neg')">Negativos</button>
+    <button class="fpill" id="fp-raw" onclick="setFP('raw')">Sin filtro</button>
+  </div>
+
+  <!-- VALOR GRANDE -->
+  <div class="val-card">
+    <div class="val-label">Último valor recibido</div>
+    <div class="val-number" id="bigVal">—</div>
+    <div class="val-unit"></div>
+    <div class="val-time" id="bigTime">—</div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card"><span class="stat-val" id="sMin">—</span><span class="stat-lbl">Mínimo</span></div>
+    <div class="stat-card"><span class="stat-val" id="sMax">—</span><span class="stat-lbl">Máximo</span></div>
+    <div class="stat-card"><span class="stat-val" id="sCount">0</span><span class="stat-lbl">Mensajes</span></div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">Histórico</span>
+      <span class="chart-range" id="chartRange">—</span>
+    </div>
+    <canvas id="liveChart" height="120"></canvas>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-card">
+    <div class="log-header">
+      <span class="log-title">Log serial</span>
+      <button class="log-clear" onclick="clearLog()">Limpiar</button>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-row"><span class="log-t">—</span><span class="log-d sys">Abre esta página desde Safari y toca Conectar</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── INSTALL BANNER ──
+  function dismissBanner() {
+    document.getElementById('installBanner').style.display = 'none';
+    localStorage.setItem('bannerDismissed', '1');
+  }
+  if (localStorage.getItem('bannerDismissed') || navigator.standalone) {
+    document.getElementById('installBanner').style.display = 'none';
+  }
+
+  // ── STATE ──
+  let ws = null, connected = false;
+  let filterType = 'all';
+  let chartData = [], allNums = [], msgCount = 0;
+  const MAX_PTS = 50;
+  const REGEX = {
+    all: /-?\d+(\.\d+)?/g,
+    int: /-?\d+(?!\.\d)/g,
+    dec: /-?\d+\.\d+/g,
+    neg: /-\d+(\.\d+)?/g
+  };
+
+  // ── WEBSOCKET ──
+  function toggleConn() { connected ? disconnect() : connect(); }
+
+  function connect() {
+    const host = document.getElementById('wsHost').value.trim();
+    const port = document.getElementById('wsPort').value.trim();
+    logSys(`Conectando a ws://${host}:${port}…`);
+    try {
+      ws = new WebSocket(`ws://${host}:${port}`);
+      ws.onopen = () => {
+        connected = true;
+        setBadge('on', 'CONECTADO');
+        document.getElementById('btnConn').className = 'btn-connect on';
+        document.getElementById('btnConn').textContent = '■ Desconectar';
+        logSys('Conectado ✓');
+      };
+      ws.onmessage = e => handleData(e.data);
+      ws.onerror   = () => { logSys('Error de conexión'); setBadge('err', 'ERROR'); };
+      ws.onclose   = () => {
+        connected = false;
+        setBadge('', 'DESCONECTADO');
+        document.getElementById('btnConn').className = 'btn-connect off';
+        document.getElementById('btnConn').textContent = '▶ Conectar';
+        logSys('Desconectado');
+      };
+    } catch(e) { logSys('Error: ' + e.message); }
+  }
+
+  function disconnect() { if (ws) ws.close(); }
+
+  // ── DATA ──
+  function handleData(raw) {
+    msgCount++;
+    document.getElementById('sCount').textContent = msgCount;
+    addLog(raw);
+
+    if (filterType === 'raw') {
+      document.getElementById('bigVal').textContent = raw.trim().slice(0,12);
+      document.getElementById('bigTime').textContent = now();
+      return;
+    }
+
+    const regex = new RegExp(REGEX[filterType].source, 'g');
+    const nums = [...raw.matchAll(regex)].map(m => parseFloat(m[0]));
+    if (nums.length === 0) return;
+
+    const val = nums[0];
+    const dec = !Number.isInteger(val);
+    const bigEl = document.getElementById('bigVal');
+    bigEl.textContent = dec ? val.toFixed(2) : val;
+    bigEl.classList.add('flash');
+    setTimeout(() => bigEl.classList.remove('flash'), 300);
+    document.getElementById('bigTime').textContent = now();
+
+    allNums.push(val);
+    document.getElementById('sMin').textContent = Math.min(...allNums).toFixed(dec?2:0);
+    document.getElementById('sMax').textContent = Math.max(...allNums).toFixed(dec?2:0);
+
+    chartData.push(val);
+    if (chartData.length > MAX_PTS) chartData.shift();
+    drawChart();
+  }
+
+  // ── FILTER ──
+  function setFP(type) {
+    filterType = type;
+    ['all','int','dec','neg','raw'].forEach(t =>
+      document.getElementById('fp-'+t).classList.toggle('active', t===type));
+    allNums = []; chartData = [];
+    document.getElementById('sMin').textContent = '—';
+    document.getElementById('sMax').textContent = '—';
+    drawChart();
+  }
+
+  // ── CHART ──
+  function drawChart() {
+    const canvas = document.getElementById('liveChart');
+    const W = canvas.parentElement.clientWidth - 28;
+    const H = 120;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,W,H);
+    if (chartData.length < 2) return;
+
+    const min = Math.min(...chartData), max = Math.max(...chartData);
+    const range = max-min || 1;
+    const pT=10, pB=10, pL=4, pR=4;
+    const cW=W-pL-pR, cH=H-pT-pB;
+
+    document.getElementById('chartRange').textContent = `${min.toFixed(1)} – ${max.toFixed(1)}`;
+
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+    [0.25,0.5,0.75].forEach(f => {
+      const y=pT+cH*f;
+      ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(W-pR,y); ctx.stroke();
+    });
+
+    const grad = ctx.createLinearGradient(0,pT,0,H-pB);
+    grad.addColorStop(0,'rgba(0,229,255,0.2)');
+    grad.addColorStop(1,'rgba(0,229,255,0)');
+    ctx.beginPath();
+    chartData.forEach((v,i) => {
+      const x=pL+(i/(MAX_PTS-1))*cW, y=pT+cH-((v-min)/range)*cH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    const lx=pL+((chartData.length-1)/(MAX_PTS-1))*cW;
+    ctx.lineTo(lx,H-pB); ctx.lineTo(pL,H-pB); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+
+    ctx.beginPath(); ctx.strokeStyle='#00e5ff'; ctx.lineWidth=2;
+    ctx.lineJoin='round'; ctx.shadowColor='#00e5ff'; ctx.shadowBlur=6;
+    chartData.forEach((v,i) => {
+      const x=pL+(i/(MAX_PTS-1))*cW, y=pT+cH-((v-min)/range)*cH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.shadowBlur=0;
+
+    const ly=pT+cH-((chartData[chartData.length-1]-min)/range)*cH;
+    ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2);
+    ctx.fillStyle='#00e5ff'; ctx.shadowColor='#00e5ff'; ctx.shadowBlur=10;
+    ctx.fill(); ctx.shadowBlur=0;
+  }
+
+  // ── LOG ──
+  function now() { return new Date().toTimeString().slice(0,8); }
+
+  function addLog(data) {
+    const body = document.getElementById('logBody');
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    row.innerHTML = `<span class="log-t">${now()}</span><span class="log-d">${data.trim()}</span>`;
+    body.appendChild(row);
+    if (body.children.length > 200) body.removeChild(body.firstChild);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function logSys(msg) {
+    const body = document.getElementById('logBody');
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    row.innerHTML = `<span class="log-t">${now()}</span><span class="log-d sys">${msg}</span>`;
+    body.appendChild(row);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function clearLog() {
+    document.getElementById('logBody').innerHTML = '';
+    logSys('Log limpiado');
+  }
+
+  function setBadge(state, txt) {
+    const b = document.getElementById('badge');
+    b.className = 'conn-badge' + (state ? ' '+state : '');
+    document.getElementById('badgeTxt').textContent = txt;
+  }
+
+  window.addEventListener('resize', drawChart);
+</script>
+</body>
+</html>
